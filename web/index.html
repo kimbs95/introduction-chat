@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Raon의 기술과 관심 분야를 대화로 알아보는 이력서입니다.">
+  <meta name="theme-color" content="#155a4b">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'">
+  <title>Raon — 대화하는 이력서</title>
+  <link rel="icon" href="./favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="./style.css">
+  <script type="module" src="./app.js"></script>
+</head>
+<body>
+  <a class="skip-link" href="#question">질문 입력으로 이동</a>
+  <header class="header wrap">
+    <a class="brand" href="./" aria-label="이력서 첫 화면"><span class="brand-mark" id="brand-mark" aria-hidden="true">R</span><span><b id="brand-name">Raon</b><small>개발자 이력서</small></span></a>
+    <nav aria-label="주요 메뉴"><a href="#profile">프로필</a><button type="button" data-open-docs>공개 자료 <span aria-hidden="true">↗</span></button><button class="print-button" id="print-button" type="button">이력서 인쇄 <span aria-hidden="true">↗</span></button></nav>
+  </header>
+  <main class="wrap workspace">
+    <section class="profile" id="profile" aria-labelledby="hero-title">
+      <div class="eyebrow"><span class="tiny-line"></span><span id="eyebrow">BACKEND DEVELOPER · DEVOPS EXPLORER</span></div>
+      <h1 id="hero-title">서비스를 만들고,<br><span>운영까지 생각합니다.</span></h1>
+      <p class="intro" id="summary">프로필을 불러오는 중입니다.</p>
+      <div class="identity"><div class="monogram" aria-hidden="true"><b id="profile-initial">R</b></div><div><h2 id="name">Raon</h2><p id="role">Backend Developer</p></div></div>
+      <div id="skills" class="skills" aria-label="주요 기술"></div>
+      <div class="focus-list" id="focus-list"></div>
+      <div class="profile-bottom"><a href="#question" class="ask-link">Raon에게 질문하기 ↗</a></div>
+      <div class="social-links" id="social-links"></div>
+    </section>
+
+    <section class="chat-card" aria-labelledby="chat-title">
+      <div class="chat-header"><div class="assistant-icon" aria-hidden="true">✳</div><div><h2 id="chat-title">Ask Raon.</h2><p><span class="status-dot"></span><span id="mode-label">자료 불러오는 중</span></p></div><button class="icon-button" id="reset-chat" title="새 대화" aria-label="새 대화 시작" type="button">↺</button></div>
+      <div class="chat-scroll" id="chat-scroll" tabindex="0" aria-label="대화 내용 스크롤">
+        <div class="chat-welcome" id="chat-welcome"><h3>어떤 점이 궁금하세요?</h3><p>질문을 선택하거나 직접 입력하면 관련 문장과 출처를 보여드려요.</p><div id="suggestions" class="suggestions"></div></div>
+        <div id="messages" role="log" aria-live="polite" aria-relevant="additions" aria-label="챗봇 대화"></div>
+      </div>
+      <div class="composer-area">
+        <p class="chat-feedback" id="feedback" role="status"></p>
+        <form id="chat-form"><label class="sr-only" for="question">Raon에 대해 질문하기</label><textarea id="question" name="question" rows="1" maxlength="500" placeholder="Raon에 대해 궁금한 점을 물어보세요" disabled required></textarea><button id="send" type="submit" aria-label="질문 보내기" disabled><span aria-hidden="true">↑</span></button></form>
+        <p class="composer-note" id="mode-note">자료에 있는 내용을 확인하고 있어요.</p>
+      </div>
+      <div class="chat-footer"><button type="button" data-open-docs><span class="document-icon" aria-hidden="true">▤</span><span id="source-count">공개 자료</span><span aria-hidden="true">↗</span></button></div>
+    </section>
+  </main>
+  <footer class="footer wrap"><span id="updated-at">자료 확인 중</span></footer>
+  <noscript><p class="wrap">대화 기능을 이용하려면 브라우저에서 JavaScript를 켜주세요.</p></noscript>
+  <dialog id="documents-dialog" aria-labelledby="documents-title"><div class="dialog-header"><div><h2 id="documents-title">공개 자료</h2></div><button class="icon-button" id="close-documents" type="button" aria-label="공개 자료 닫기">×</button></div><p class="dialog-note">답변에 사용하는 공개 텍스트입니다. 원본 파일의 이미지와 서식은 표시되지 않습니다.</p><div id="document-list"></div></dialog>
+</body>
+</html>
