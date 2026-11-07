@@ -28,7 +28,14 @@ def chunks(text, size=800, overlap=100):
 
 
 def profile_sections(profile):
-    sections = [("소개", f"이름: {profile['name']}\n역할: {profile['role']}\n{profile['summary']}"),
+    identity = []
+    if profile.get("fullName"):
+        identity.append(f"본명 · {profile['fullName']}")
+    identity.append(f"공개 이름 · {profile['name']}")
+    if profile.get("aliases"):
+        identity.append("다른 이름과 표기 · " + ", ".join(profile["aliases"]))
+    sections = [("이름", "\n".join(identity)),
+                ("소개", f"{profile['name']}\n역할: {profile['role']}\n{profile['summary']}"),
                 ("기술", "주요 기술: " + ", ".join(profile.get("skills", [])))]
     for item in profile.get("focus", []):
         sections.append((item["title"], f"{item['title']}: {item['text']}\n{item['description']}"))
@@ -43,7 +50,9 @@ def build(root=ROOT):
     for key in ("name", "role", "summary", "headline", "eyebrow"):
         if not isinstance(profile.get(key), str) or not profile[key].strip():
             raise ValueError(f"profile.json의 {key} 값을 입력하세요.")
-    for key in ("skills", "questions"):
+    if "fullName" in profile and not isinstance(profile["fullName"], str):
+        raise ValueError("profile.json의 fullName은 문자열이어야 합니다.")
+    for key in ("skills", "questions", "aliases"):
         if not isinstance(profile.get(key, []), list) or any(not isinstance(v, str) for v in profile.get(key, [])):
             raise ValueError(f"profile.json의 {key}는 문자열 배열이어야 합니다.")
     if not isinstance(profile.get("focus", []), list) or any(
@@ -54,7 +63,8 @@ def build(root=ROOT):
     if not isinstance(profile.get("links", {}), dict) or any(not isinstance(v, str) for v in profile.get("links", {}).values()):
         raise ValueError("profile.json의 links는 문자열 값을 가진 객체여야 합니다.")
     # 프런트엔드에는 문서화한 공개 키만 포함한다. 알 수 없는 설정/비밀은 복사하지 않는다.
-    public_profile = {k: profile[k] for k in ("name", "role", "summary", "headline", "eyebrow", "skills", "questions") if k in profile}
+    public_keys = ("name", "fullName", "aliases", "role", "summary", "headline", "eyebrow", "skills", "questions")
+    public_profile = {k: profile[k] for k in public_keys if k in profile}
     public_profile["focus"] = [{k: item[k] for k in ("title", "text", "description")} for item in profile.get("focus", [])]
     public_profile["links"] = {k: profile.get("links", {})[k] for k in ("github", "email", "blog") if k in profile.get("links", {})}
     records, documents = [], []
