@@ -9,3 +9,8 @@
 
 .ask-link { color: var(--green); font-size: 13px; font-weight: 600; padding: 8px 0; }
 .monogram b { font-weight: 500; }
+
+.model-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+.model-actions[hidden], .model-actions button[hidden] { display: none; }
+.model-actions button { border: 1px solid var(--line); border-radius: 6px; padding: 7px 11px; color: var(--green); background: var(--paper); font-size: 12px; font-weight: 600; }
+.model-actions #start-model { border-color: var(--green); background: var(--green); color: white; }

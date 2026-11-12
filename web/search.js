@@ -2,10 +2,10 @@
 // 임베딩 모델 없이 동작하므로 복잡한 의미 검색에는 한계가 있다.
 const STOP = new Set(['어떤','어떻게','무엇','뭐야','누구','얼마','정도','지금','대한','대해','대해서','가장','사용','있나요','하나요','인가요','알려줘','알려주세요','알려','궁금해요','주세요','설명해줘','해줘','개발자','좀','the','is','a','an','what','how','about','your','you','tell','me']);
 const GROUPS = [
-  { pattern: /기술|스택|언어|skills?|stack/i, terms: ['기술','스택','java','spring','mysql','docker','linux','javascript','react'] },
+  { pattern: /기술|스택|언어|프레임워크|skills?|stack|framework/i, terms: ['기술','스택','java','spring','mysql','docker','linux','javascript','react'] },
   { pattern: /데브옵스|devops|데브.?옵스/i, terms: ['devops','운영','배포','학습','자동화'] },
   { pattern: /목표|앞으로|장기|계획|goal|future/i, terms: ['목표','장기','성장','시니어'] },
-  { pattern: /자기소개|소개해|누구|어떤\s*(사람|개발자|분)|introduc|yourself/i, terms: ['소개','역할','백엔드'] },
+  { pattern: /자기소개|소개해|누구|직무|직업|뭐\s*하는|(?:무슨|어떤)\s*일(?:을| 하나|이세)|어떤\s*(사람|개발자|분)|introduc|yourself/i, terms: ['소개','역할','백엔드'] },
   { pattern: /본명|실명|성함|닉네임|별명|별칭|영문명|한글명|뭐라고\s*불러|\b(?:name|nickname|aliases)\b/i, terms: ['본명','공개 이름','다른 이름과 표기'] },
   { pattern: /데이터베이스|\bdb\b|database/i, terms: ['데이터베이스','mysql','sql','oracle','postgresql'] },
   { pattern: /배포|자동화|파이프라인|ci\/?cd/i, terms: ['배포','자동화','ci/cd','파이프라인','docker'] },
@@ -53,6 +53,11 @@ function profileNamePattern(names) {
     ')(?:\\s*(?:님|씨))?' + suffix + '(?=$|[^\\p{L}\\p{N}])', 'gu');
 }
 
+export function previousTopic(question, history) {
+  if (!/^(그(것|거|런|쪽)|이어서|좀 더|더 자세|그럼|그러면)/.test(question)) return '';
+  return [...history].reverse().find(message => message.role === 'user')?.content.slice(0, 300) || '';
+}
+
 export function makeRetriever(knowledge, profileName = '', aliases = []) {
   const namePattern = profileNamePattern([profileName, ...aliases]);
   const identity = knowledge.chunks.find(chunk => chunk.source === '프로필' && chunk.location === '이름');
@@ -62,10 +67,8 @@ export function makeRetriever(knowledge, profileName = '', aliases = []) {
   return (question, history = []) => {
     let query = question.trim();
     // 직전 답변을 사실로 재사용하지 않고, 명시적인 후속 질문에만 이전 질문의 검색어를 보탠다.
-    if (/^(그(것|거|런|쪽)|이어서|좀 더|더 자세|그럼|그러면)/.test(query)) {
-      const previous = [...history].reverse().find(m => m.role === 'user');
-      if (previous) query = `${previous.content.slice(0, 300)} ${query}`;
-    }
+    const previous = previousTopic(query, history);
+    if (previous) query = previous + ' ' + query;
     const normalized = normalize(query);
     const topic = namePattern ? normalized.replace(namePattern, '$1 ') : normalized;
     const remaining = topic.replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
