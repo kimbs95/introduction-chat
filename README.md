@@ -1,4 +1,4 @@
-# Raon의 대화형 이력서
+# 김병성의 대화형 이력서
 
 [이력서 열기](https://kimbs95.github.io/introduction-chat/) · [공개 문서 폴더](./content/documents/)
 
