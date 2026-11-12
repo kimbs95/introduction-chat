@@ -1,4 +1,5 @@
-import {makeRetriever, extractiveAnswer} from './search.js';
+import {makeRetriever, extractiveAnswer, previousTopic} from './search.js';
+import {generateReply} from './llm.js';
 
 const $ = selector => document.querySelector(selector);
 const node = (tag, text, className) => {
@@ -9,6 +10,8 @@ const node = (tag, text, className) => {
 };
 let profile, knowledge, retrieve;
 let history = [];
+let activeTurn = null;
+let modelEnabled = false;
 const questionInput = $('#question');
 const messages = $('#messages');
 const dialog = $('#documents-dialog');
@@ -47,9 +50,9 @@ function scrollBottom() {
   container.scrollTop = container.scrollHeight;
 }
 
-function addMessage(role, text, sources = []) {
+function addMessage(role, text, sources = [], label = '') {
   const message = node('article', undefined, `message ${role}`);
-  message.append(node('div', role === 'user' ? 'YOU' : `Ask ${profile.name}`, 'message-label'));
+  message.append(node('div', role === 'user' ? 'YOU' : label, 'message-label'));
   message.append(node('div', text, 'message-body'));
   if (sources.length) {
     const pills = node('div', undefined, 'source-pills');
@@ -65,20 +68,89 @@ function addMessage(role, text, sources = []) {
   scrollBottom();
 }
 
-function sendQuestion(question) {
-  const query = question.trim();
-  if (!retrieve || !query || query.length > 500) return;
-  const sources = retrieve(query, history).slice(0, 3);
-  $('#chat-welcome').hidden = true;
-  addMessage('user', query);
-  addMessage('assistant', extractiveAnswer(sources), sources);
-  history.push({role: 'user', content: query});
-  history = history.slice(-3);
-  questionInput.value = '';
-  questionInput.style.height = '';
+function finishTurn(turn, text, label, notice = '') {
+  if (activeTurn !== turn) return;
+  clearTimeout(turn.timer);
+  activeTurn = null;
+  addMessage('assistant', text, turn.sources, label);
+  history = [...history, {role: 'user', content: turn.question}].slice(-3);
+  $('#model-actions').hidden = true;
+  $('#feedback').textContent = notice;
+  questionInput.disabled = false;
+  $('#send').disabled = false;
   questionInput.focus({preventScroll: true});
 }
 
+function showExcerpts(notice = '') {
+  const turn = activeTurn;
+  if (!turn) return;
+  if (turn.running) {
+    modelEnabled = false;
+    turn.controller.abort();
+  }
+  finishTurn(turn, extractiveAnswer(turn.sources), '문서 원문', notice);
+}
+
+async function startGeneration() {
+  const turn = activeTurn;
+  if (!turn || turn.running) return;
+  turn.running = true;
+  modelEnabled = true;
+  $('#start-model').hidden = true;
+  function onStatus(text) {
+    if (activeTurn !== turn) return;
+    if ($('#feedback').textContent !== text) $('#feedback').textContent = text;
+    clearTimeout(turn.timer);
+    turn.timer = setTimeout(() => {
+      if (activeTurn === turn) showExcerpts('모델의 응답이 지연되어 관련 원문을 표시했습니다.');
+    }, 180000);
+  }
+  onStatus('LLM을 준비하고 있습니다…');
+  try {
+    const answer = await generateReply({
+      name: profile.name, question: turn.question, sources: turn.sources,
+      previousQuestion: turn.previousQuestion, signal: turn.controller.signal, onStatus,
+    });
+    if (activeTurn !== turn) return;
+    if (answer) finishTurn(turn, answer, profile.name + ' · LLM 답변');
+    else finishTurn(turn, extractiveAnswer(turn.sources), '문서 원문', '생성된 답변의 근거를 확인하기 어려워 관련 원문을 표시했습니다.');
+  } catch {
+    if (activeTurn !== turn) return;
+    modelEnabled = false;
+    finishTurn(turn, extractiveAnswer(turn.sources), '문서 원문', '이 기기에서 모델을 불러오거나 실행할 수 없어 관련 원문을 표시했습니다.');
+  }
+}
+
+function sendQuestion(question) {
+  const query = question.trim();
+  if (activeTurn || !retrieve || !query || query.length > 500) return;
+  const turn = {
+    question: query, sources: retrieve(query, history).slice(0, 3),
+    previousQuestion: previousTopic(query, history), controller: new AbortController(), running: false,
+  };
+  activeTurn = turn;
+  $('#chat-welcome').hidden = true;
+  addMessage('user', query);
+  questionInput.value = '';
+  questionInput.style.height = '';
+  questionInput.disabled = true;
+  $('#send').disabled = true;
+  if (!turn.sources.length) {
+    finishTurn(turn, extractiveAnswer([]), '문서 검색');
+    return;
+  }
+  $('#model-actions').hidden = false;
+  $('#start-model').hidden = false;
+  if (modelEnabled) {
+    void startGeneration();
+  } else {
+    $('#feedback').textContent = 'LLM을 시작하면 모델을 이 기기에 저장합니다(최초 약 398 MB). 저장된 모델은 다시 사용합니다.';
+    $('#start-model').focus({preventScroll: true});
+  }
+}
+
+$('#start-model').addEventListener('click', startGeneration);
+$('#show-excerpts').addEventListener('click', () => showExcerpts());
 $('#chat-form').addEventListener('submit', event => { event.preventDefault(); sendQuestion(questionInput.value); });
 questionInput.addEventListener('keydown', event => {
   if (event.key === 'Enter' && !event.shiftKey && !event.isComposing && event.keyCode !== 229) {
@@ -88,6 +160,15 @@ questionInput.addEventListener('keydown', event => {
 });
 questionInput.addEventListener('input', () => { questionInput.style.height = 'auto'; questionInput.style.height = Math.min(questionInput.scrollHeight, 120) + 'px'; });
 $('#reset-chat').addEventListener('click', () => {
+  if (activeTurn) {
+    clearTimeout(activeTurn.timer);
+    activeTurn.controller.abort();
+    modelEnabled = false;
+  }
+  activeTurn = null;
+  $('#model-actions').hidden = true;
+  questionInput.disabled = !retrieve;
+  $('#send').disabled = !retrieve;
   history = [];
   messages.replaceChildren();
   $('#chat-welcome').hidden = false;
@@ -138,8 +219,8 @@ function renderProfile() {
     const link = node('a', `${label === 'email' ? 'Email' : label === 'github' ? 'GitHub' : 'Blog'} ↗`);
     link.href = href; link.rel = 'noopener noreferrer'; link.target = '_blank'; $('#social-links').append(link);
   }
-  $('#mode-label').textContent = '문서 검색형';
-  $('#mode-note').textContent = '질문과 대화 기록은 이 탭에서만 처리합니다.';
+  $('#mode-label').textContent = '문서 기반 LLM';
+  $('#mode-note').textContent = '질문과 답변은 이 기기에서 처리합니다.';
   $('#source-count').textContent = `공개 자료 ${knowledge.documents.length}개`;
   $('#updated-at').textContent = `자료 업데이트 ${new Intl.DateTimeFormat('ko-KR', {timeZone:'Asia/Seoul',dateStyle:'medium'}).format(new Date(knowledge.updatedAt))}`;
 }

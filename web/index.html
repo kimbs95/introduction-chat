@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="Raon의 기술과 관심 분야를 대화로 알아보는 이력서입니다.">
   <meta name="theme-color" content="#155a4b">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self' blob:; style-src 'self'; img-src 'self' data:; connect-src 'self' blob: https://huggingface.co https://*.huggingface.co https://*.hf.co; object-src 'none'; base-uri 'self'; form-action 'none'">
   <title>Raon — 대화하는 이력서</title>
   <link rel="icon" href="./favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="./style.css">
@@ -32,11 +32,15 @@
     <section class="chat-card" aria-labelledby="chat-title">
       <div class="chat-header"><div class="assistant-icon" aria-hidden="true">✳</div><div><h2 id="chat-title">Ask Raon.</h2><p><span class="status-dot"></span><span id="mode-label">자료 불러오는 중</span></p></div><button class="icon-button" id="reset-chat" title="새 대화" aria-label="새 대화 시작" type="button">↺</button></div>
       <div class="chat-scroll" id="chat-scroll" tabindex="0" aria-label="대화 내용 스크롤">
-        <div class="chat-welcome" id="chat-welcome"><h3>어떤 점이 궁금하세요?</h3><p>질문을 선택하거나 직접 입력하면 관련 문장과 출처를 보여드려요.</p><div id="suggestions" class="suggestions"></div></div>
+        <div class="chat-welcome" id="chat-welcome"><h3>어떤 점이 궁금하세요?</h3><p>질문을 선택하거나 직접 입력해 보세요. 공개 이력서를 바탕으로 답하고, 참고한 원문을 함께 보여드려요.</p><div id="suggestions" class="suggestions"></div></div>
         <div id="messages" role="log" aria-live="polite" aria-relevant="additions" aria-label="챗봇 대화"></div>
       </div>
       <div class="composer-area">
         <p class="chat-feedback" id="feedback" role="status"></p>
+        <div id="model-actions" class="model-actions" hidden>
+          <button id="start-model" type="button">LLM 답변 시작</button>
+          <button id="show-excerpts" type="button">문서 원문 바로 보기</button>
+        </div>
         <form id="chat-form"><label class="sr-only" for="question">Raon에 대해 질문하기</label><textarea id="question" name="question" rows="1" maxlength="500" placeholder="Raon에 대해 궁금한 점을 물어보세요" disabled required></textarea><button id="send" type="submit" aria-label="질문 보내기" disabled><span aria-hidden="true">↑</span></button></form>
         <p class="composer-note" id="mode-note">자료에 있는 내용을 확인하고 있어요.</p>
       </div>

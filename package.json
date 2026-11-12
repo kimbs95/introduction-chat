@@ -7,5 +7,11 @@
     "test": "node --test tests/*.test.js",
     "preview": "python3 -m http.server 8000 --directory dist"
   },
-  "engines": { "node": ">=22" }
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {
+    "@wllama/wllama": "3.13.0",
+    "@wllama/wllama-compat": "3.13.0"
+  }
 }
