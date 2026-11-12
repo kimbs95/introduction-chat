@@ -45,6 +45,20 @@ def profile_sections(profile):
     return sections
 
 
+def runtime_files():
+    packages = ROOT / "node_modules/@wllama"
+    assets = {
+        "runtime.js": packages / "wllama/esm/index.min.js",
+        "wllama.wasm": packages / "wllama/esm/wasm/wllama.wasm",
+        "compat/wllama.js": packages / "wllama-compat/wasm/wllama.js",
+        "compat/wllama.wasm": packages / "wllama-compat/wasm/wllama.wasm",
+        "LICENSE": packages / "wllama/LICENCE",
+    }
+    if any(not src.is_file() for src in assets.values()):
+        raise ValueError("프로젝트 폴더에서 npm ci --ignore-scripts 실행 후 다시 빌드하세요.")
+    return assets
+
+
 def build(root=ROOT):
     profile = json.loads((root / "content/profile.json").read_text(encoding="utf-8"))
     for key in ("name", "role", "summary", "headline", "eyebrow"):
@@ -108,10 +122,15 @@ def build(root=ROOT):
     knowledge = {"version": hashlib.sha256(serialized.encode()).hexdigest()[:16],
                  "updatedAt": datetime.now(timezone.utc).isoformat(),
                  "documents": documents, "chunks": records}
+    assets = runtime_files()
     dist = root / "dist"
     if dist.exists():
         shutil.rmtree(dist)
     shutil.copytree(root / "web", dist)
+    for relative, src in assets.items():
+        dest = dist / "vendor/wllama" / relative
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(src, dest)
     (dist / "data").mkdir()
     (dist / "data/profile.json").write_text(json.dumps(public_profile, ensure_ascii=False, indent=2), encoding="utf-8")
     (dist / "data/knowledge.json").write_text(json.dumps(knowledge, ensure_ascii=False), encoding="utf-8")
