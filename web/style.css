@@ -14,3 +14,7 @@
 .model-actions[hidden], .model-actions button[hidden] { display: none; }
 .model-actions button { border: 1px solid var(--line); border-radius: 6px; padding: 7px 11px; color: var(--green); background: var(--paper); font-size: 12px; font-weight: 600; }
 .model-actions #start-model { border-color: var(--green); background: var(--green); color: white; }
+
+#documents-dialog[open] { display: flex; flex-direction: column; overflow: hidden; }
+#documents-dialog .dialog-header, #documents-dialog .dialog-note { flex: none; }
+#document-list { min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
