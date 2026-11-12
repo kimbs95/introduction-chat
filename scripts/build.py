@@ -127,6 +127,10 @@ def build(root=ROOT):
     if dist.exists():
         shutil.rmtree(dist)
     shutil.copytree(root / "web", dist)
+    css_version = hashlib.sha256((dist / "style.css").read_bytes()).hexdigest()[:12]
+    index = dist / "index.html"
+    html = index.read_text(encoding="utf-8")
+    index.write_text(html.replace('href="./style.css"', f'href="./style.css?v={css_version}"'), encoding="utf-8")
     for relative, src in assets.items():
         dest = dist / "vendor/wllama" / relative
         dest.parent.mkdir(parents=True, exist_ok=True)
