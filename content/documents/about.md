@@ -1,7 +1,7 @@
-# Raon 소개
+# 김병성 소개
 
 ## 자기소개
-Raon은 Java, Spring, MySQL, REST API 개발을 중심으로 일하는 백엔드 개발자입니다. 서버 개발, 성능 최적화, 확장 가능한 아키텍처에 관심이 있습니다.
+김병성은 Java, Spring, MySQL, REST API 개발을 중심으로 일하는 백엔드 개발자입니다. 서버 개발, 성능 최적화, 확장 가능한 아키텍처에 관심이 있습니다.
 
 ## 주요 기술 스택
 주요 기술 스택은 Java, Spring Boot, Spring, SQL, MySQL, REST API, Docker, Linux입니다. JavaScript와 React를 사용한 프런트엔드 개발 경험도 있습니다.
