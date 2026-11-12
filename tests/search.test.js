@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {knowledge} from './fixtures.js';
 import {makeRetriever, extractiveAnswer} from '../web/search.js';
 
-const retrieve = makeRetriever(knowledge, 'Raon');
+const retrieve = makeRetriever(knowledge, '김병성');
 test('Korean stack question finds real skills', () => {
   const sources = retrieve('어떤 기술을 주로 사용하나요?');
   assert.ok(sources.length);
@@ -30,15 +30,15 @@ test('search uses new documents without hard-coded resume answers', () => {
 });
 
 test('a profile name alone does not supply evidence for an unrelated question', () => {
-  assert.deepEqual(retrieve('Raon의 취미는 뭔가요?'), []);
-  assert.deepEqual(retrieve('Raon의 연봉은 얼마인가요?'), []);
+  assert.deepEqual(retrieve('김병성의 취미는 뭔가요?'), []);
+  assert.deepEqual(retrieve('김병성의 연봉은 얼마인가요?'), []);
 });
 
 test('an introduction question returns body text rather than a bare heading', () => {
   const search = makeRetriever({chunks: [
-    ...knowledge.chunks, {id:'heading', documentId:'a', source:'소개.md', location:'1문단', text:'# Raon 소개'}
-  ]}, 'Raon');
-  const found = search('Raon은 어떤 개발자인가요?');
+    ...knowledge.chunks, {id:'heading', documentId:'a', source:'소개.md', location:'1문단', text:'# 김병성 소개'}
+  ]}, '김병성');
+  const found = search('김병성은 어떤 개발자인가요?');
   assert.ok(found.some(item => item.id === 'intro'));
   assert.ok(found.every(item => item.id !== 'heading'));
 });

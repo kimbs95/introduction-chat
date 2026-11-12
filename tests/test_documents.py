@@ -112,7 +112,7 @@ class DocumentTests(unittest.TestCase):
     def test_real_hwp_ole_compressed_and_plain(self):
         for flags in (0, 1):
             path = self.root / f"resume{flags}.hwp"
-            write_hwp_fixture(path, "Raon은 Java 백엔드 개발자입니다.\r", flags)
+            write_hwp_fixture(path, "김병성은 Java 백엔드 개발자입니다.\r", flags)
             self.assertIn("Java 백엔드", extract(path)[0][1])
 
     def test_encrypted_and_distribution_hwp_rejected(self):
