@@ -5,7 +5,8 @@ const GROUPS = [
   { pattern: /기술|스택|언어|skills?|stack/i, terms: ['기술','스택','java','spring','mysql','docker','linux','javascript','react'] },
   { pattern: /데브옵스|devops|데브.?옵스/i, terms: ['devops','운영','배포','학습','자동화'] },
   { pattern: /목표|앞으로|장기|계획|goal|future/i, terms: ['목표','장기','성장','시니어'] },
-  { pattern: /자기소개|소개해|누구|어떤\s*(사람|개발자)|introduc|yourself/i, terms: ['소개','이름','역할','백엔드'] },
+  { pattern: /자기소개|소개해|누구|어떤\s*(사람|개발자|분)|introduc|yourself/i, terms: ['소개','역할','백엔드'] },
+  { pattern: /본명|실명|성함|닉네임|별명|별칭|영문명|한글명|뭐라고\s*불러|\b(?:name|nickname|aliases)\b/i, terms: ['본명','공개 이름','다른 이름과 표기'] },
   { pattern: /데이터베이스|\bdb\b|database/i, terms: ['데이터베이스','mysql','sql','oracle','postgresql'] },
   { pattern: /배포|자동화|파이프라인|ci\/?cd/i, terms: ['배포','자동화','ci/cd','파이프라인','docker'] },
   { pattern: /클라우드|cloud/i, terms: ['클라우드','cloud','aws','gcp'] },
@@ -41,8 +42,20 @@ function features(word) {
   return [...new Set(parts)];
 }
 
-export function makeRetriever(knowledge, profileName = '') {
-  const name = normalize(profileName.trim());
+function profileNamePattern(names) {
+  const variants = [...new Set(names.filter(Boolean).map(name => normalize(name.trim())))].filter(Boolean);
+  if (!variants.length) return null;
+  const alternatives = variants.sort((a, b) => b.length - a.length)
+    .map(name => name.replace(/[$.*+?^{}()|[\]\\]/g, '\\$&')).join('|');
+  // "병성님은"을 주어로 인식하되, 더 긴 고유 명사의 일부는 그대로 검색한다.
+  const suffix = '(?:이랑|랑|하고|에게|께서|인가요|이에요|예요|이야|야|이죠|이가|은|는|이|가|의|과|와|도|을|를)?';
+  return new RegExp('(^|[^\\p{L}\\p{N}])(?:' + alternatives +
+    ')(?:\\s*(?:님|씨))?' + suffix + '(?=$|[^\\p{L}\\p{N}])', 'gu');
+}
+
+export function makeRetriever(knowledge, profileName = '', aliases = []) {
+  const namePattern = profileNamePattern([profileName, ...aliases]);
+  const identity = knowledge.chunks.find(chunk => chunk.source === '프로필' && chunk.location === '이름');
   const records = knowledge.chunks
     .filter(chunk => !/^#{1,6}\s+[^\n]+$/.test(chunk.text.trim()))
     .map(chunk => ({...chunk, normalized: normalize(chunk.text)}));
@@ -53,8 +66,15 @@ export function makeRetriever(knowledge, profileName = '') {
       const previous = [...history].reverse().find(m => m.role === 'user');
       if (previous) query = `${previous.content.slice(0, 300)} ${query}`;
     }
-    const base = tokens(query).filter(token => token !== name);
-    const expansion = GROUPS.filter(group => group.pattern.test(query)).flatMap(group => group.terms);
+    const normalized = normalize(query);
+    const topic = namePattern ? normalized.replace(namePattern, '$1 ') : normalized;
+    const remaining = topic.replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
+    const identityCheck = /^(?:같은\s*(?:사람|분)|동일인)(?:이야|인가요|입니까|이에요|예요|이죠|이?\s*맞나요)?$/;
+    if (identity && topic !== normalized && (!remaining || identityCheck.test(remaining))) {
+      return [identity];
+    }
+    const base = tokens(topic);
+    const expansion = GROUPS.filter(group => group.pattern.test(topic)).flatMap(group => group.terms);
     const weights = new Map();
     for (const word of base) for (const token of features(word)) weights.set(token, token === word ? 3 : 0.45);
     for (const word of expansion) if (!weights.has(word)) weights.set(word, 1.3);

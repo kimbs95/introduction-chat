@@ -42,3 +42,27 @@ test('an introduction question returns body text rather than a bare heading', ()
   assert.ok(found.some(item => item.id === 'intro'));
   assert.ok(found.every(item => item.id !== 'heading'));
 });
+
+const identity = {id:'name', documentId:'profile', source:'프로필', location:'이름',
+  text:'본명 · 홍길동\n공개 이름 · Daon\n다른 이름과 표기 · 길동, 다온, daon'};
+const aliasSearch = makeRetriever({chunks:[identity, ...knowledge.chunks]}, 'Daon', ['홍길동','길동','다온','daon']);
+
+test('a name, nickname or alias comparison finds the same cited profile', () => {
+  for (const query of ['홍길동', '길동', '다온', 'daon', 'DAON', '본명이 뭐예요?', '성함이 어떻게 되세요?',
+    '다온의 이름이 뭐예요?', '길동님의 닉네임은?', '홍길동과 다온은 같은 사람인가요?', '다온이 홍길동이야?']) {
+    assert.equal(aliasSearch(query)[0]?.id, identity.id, query);
+  }
+});
+
+test('names with Korean particles or honorifics do not alter the topic or create evidence', () => {
+  const expected = aliasSearch('기술 스택').map(item => item.id);
+  assert.ok(expected.length);
+  for (const name of ['홍길동은', '길동님이', '다온 씨의', 'DAON의']) {
+    assert.deepEqual(aliasSearch(name + ' 기술 스택').map(item => item.id), expected);
+    assert.deepEqual(aliasSearch(name + ' 취미는 뭐예요?'), []);
+  }
+  assert.deepEqual(aliasSearch('홍길동의 연봉은?'), []);
+  const organization = {id:'org', documentId:'work', source:'경력.xlsx', location:'경력 · 2행', text:'다온테크에 근무했습니다.'};
+  const search = makeRetriever({chunks:[identity, organization]}, 'Daon', ['다온']);
+  assert.equal(search('다온테크')[0]?.id, 'org');
+});

@@ -150,7 +150,7 @@ try {
     if (!response.ok) throw new Error('자료 요청 실패');
     return response.json();
   }));
-  retrieve = makeRetriever(knowledge, profile.name);
+  retrieve = makeRetriever(knowledge, profile.name, [profile.fullName, ...(profile.aliases || [])]);
   renderProfile();
   questionInput.disabled = false;
   $('#send').disabled = false;

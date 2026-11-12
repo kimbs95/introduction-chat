@@ -152,6 +152,8 @@ class DocumentTests(unittest.TestCase):
         shutil.copytree(ROOT / 'web', self.root / 'web')
         (self.root / 'content/documents').mkdir(parents=True)
         profile = json.loads((ROOT / 'content/profile.json').read_text())
+        profile['fullName'] = '홍길동'
+        profile['aliases'] = ['길동', '테스터']
         profile['private_note'] = 'SECRET-DO-NOT-PUBLISH'
         profile['links']['private_note'] = 'SECRET-DO-NOT-PUBLISH'
         profile['focus'][0]['private_note'] = 'SECRET-DO-NOT-PUBLISH'
@@ -159,11 +161,17 @@ class DocumentTests(unittest.TestCase):
         document = self.root / 'content/documents/old.txt'
         document.write_text('삭제할 과거 경력', encoding='utf-8')
         first = build(self.root)
+        name_record = next(x for x in first['chunks'] if x['source'] == '프로필' and x['location'] == '이름')
+        self.assertIn('홍길동', name_record['text'])
+        self.assertIn('길동, 테스터', name_record['text'])
         self.assertTrue(any('과거 경력' in x['text'] for x in first['chunks']))
         self.assertNotIn('SECRET-DO-NOT-PUBLISH', (self.root / 'dist/data/profile.json').read_text())
         self.assertFalse((self.root / 'dist/content').exists())
         document.unlink()
+        del profile['fullName'], profile['aliases']
+        (self.root / 'content/profile.json').write_text(json.dumps(profile), encoding='utf-8')
         second = build(self.root)
+        self.assertFalse(any('홍길동' in x['text'] for x in second['chunks']))
         self.assertFalse(any('과거 경력' in x['text'] for x in second['chunks']))
         self.assertNotEqual(first['version'], second['version'])
 
