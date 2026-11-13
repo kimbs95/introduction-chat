@@ -1,6 +1,8 @@
 """문서를 읽고 GitHub Pages의 검색 자료를 생성한다."""
 from __future__ import annotations
 
+import os
+import re
 import hashlib
 import json
 import shutil
@@ -43,20 +45,6 @@ def profile_sections(profile):
         if value:
             sections.append((label, f"{label}: {value}"))
     return sections
-
-
-def runtime_files():
-    packages = ROOT / "node_modules/@wllama"
-    assets = {
-        "runtime.js": packages / "wllama/esm/index.min.js",
-        "wllama.wasm": packages / "wllama/esm/wasm/wllama.wasm",
-        "compat/wllama.js": packages / "wllama-compat/wasm/wllama.js",
-        "compat/wllama.wasm": packages / "wllama-compat/wasm/wllama.wasm",
-        "LICENSE": packages / "wllama/LICENCE",
-    }
-    if any(not src.is_file() for src in assets.values()):
-        raise ValueError("프로젝트 폴더에서 npm ci --ignore-scripts 실행 후 다시 빌드하세요.")
-    return assets
 
 
 def build(root=ROOT):
@@ -122,7 +110,9 @@ def build(root=ROOT):
     knowledge = {"version": hashlib.sha256(serialized.encode()).hexdigest()[:16],
                  "updatedAt": datetime.now(timezone.utc).isoformat(),
                  "documents": documents, "chunks": records}
-    assets = runtime_files()
+    endpoint = os.getenv("CHAT_API_URL", "").strip().rstrip("/")
+    if endpoint and not re.fullmatch(r"https://[a-z0-9-]+(?:\.[a-z0-9-]+)+", endpoint):
+        raise ValueError("CHAT_API_URL에는 HTTPS API 출처만 입력하세요.")
     dist = root / "dist"
     if dist.exists():
         shutil.rmtree(dist)
@@ -130,12 +120,10 @@ def build(root=ROOT):
     css_version = hashlib.sha256((dist / "style.css").read_bytes()).hexdigest()[:12]
     index = dist / "index.html"
     html = index.read_text(encoding="utf-8")
+    html = html.replace("connect-src 'self'", "connect-src 'self' " + endpoint)
     index.write_text(html.replace('href="./style.css"', f'href="./style.css?v={css_version}"'), encoding="utf-8")
-    for relative, src in assets.items():
-        dest = dist / "vendor/wllama" / relative
-        dest.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copyfile(src, dest)
     (dist / "data").mkdir()
+    (dist / "data/config.json").write_text(json.dumps({"api": endpoint}), encoding="utf-8")
     (dist / "data/profile.json").write_text(json.dumps(public_profile, ensure_ascii=False, indent=2), encoding="utf-8")
     (dist / "data/knowledge.json").write_text(json.dumps(knowledge, ensure_ascii=False), encoding="utf-8")
     (dist / ".nojekyll").touch()
