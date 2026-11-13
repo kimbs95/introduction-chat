@@ -18,3 +18,9 @@
 #documents-dialog[open] { display: flex; flex-direction: column; overflow: hidden; }
 #documents-dialog .dialog-header, #documents-dialog .dialog-note { flex: none; }
 #document-list { min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+
+#invite-form { padding: 24px 0; }
+#invite-form label { display:block; margin-bottom:8px; font-weight:600; }
+#invite-form input { width:min(65%,260px); padding:10px; border:1px solid var(--line); border-radius:6px; }
+#invite-form button { padding:10px; background:var(--green); color:white; border:0; border-radius:6px; }
+#invite-form p { color:var(--muted); font-size:13px; line-height:1.6; }

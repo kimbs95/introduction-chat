@@ -1,6 +1,3 @@
-import {makeRetriever, extractiveAnswer, previousTopic} from './search.js';
-import {generateReply} from './llm.js';
-
 const $ = selector => document.querySelector(selector);
 const node = (tag, text, className) => {
   const element = document.createElement(tag);
@@ -8,10 +5,8 @@ const node = (tag, text, className) => {
   if (className) element.className = className;
   return element;
 };
-let profile, knowledge, retrieve;
-let history = [];
-let activeTurn = null;
-let modelEnabled = false;
+let profile, knowledge, api, credential = '', busy = false;
+let conversation = crypto.randomUUID();
 const questionInput = $('#question');
 const messages = $('#messages');
 const dialog = $('#documents-dialog');
@@ -68,89 +63,68 @@ function addMessage(role, text, sources = [], label = '') {
   scrollBottom();
 }
 
-function finishTurn(turn, text, label, notice = '') {
-  if (activeTurn !== turn) return;
-  clearTimeout(turn.timer);
-  activeTurn = null;
-  addMessage('assistant', text, turn.sources, label);
-  history = [...history, {role: 'user', content: turn.question}].slice(-3);
-  $('#model-actions').hidden = true;
-  $('#feedback').textContent = notice;
-  questionInput.disabled = false;
-  $('#send').disabled = false;
-  questionInput.focus({preventScroll: true});
+function lock(locked) {
+  questionInput.disabled = locked;
+  $('#send').disabled = locked;
+  $('#reset-chat').disabled = busy || !credential;
 }
 
-function showExcerpts(notice = '') {
-  const turn = activeTurn;
-  if (!turn) return;
-  if (turn.running) {
-    modelEnabled = false;
-    turn.controller.abort();
+async function call(path, code, body) {
+  const res = await fetch(api + path, {method:'POST', credentials:'omit', redirect:'error',
+    signal:AbortSignal.timeout(55000), headers:{Authorization:'Bearer '+code,'Content-Type':'application/json'},
+    body:JSON.stringify(body)});
+  const data = await res.json();
+  if (!res.ok) {
+    if (res.status === 401) {
+      credential = '';
+      $('#invite-form').hidden = false;
+      $('#chat-welcome').hidden = true;
+      messages.replaceChildren();
+      conversation = crypto.randomUUID();
+      lock(true);
+    }
+    throw new Error(data.error || '서버에 연결할 수 없습니다.');
   }
-  finishTurn(turn, extractiveAnswer(turn.sources), '문서 원문', notice);
+  return data;
 }
 
-async function startGeneration() {
-  const turn = activeTurn;
-  if (!turn || turn.running) return;
-  turn.running = true;
-  modelEnabled = true;
-  $('#start-model').hidden = true;
-  function onStatus(text) {
-    if (activeTurn !== turn) return;
-    if ($('#feedback').textContent !== text) $('#feedback').textContent = text;
-    clearTimeout(turn.timer);
-    turn.timer = setTimeout(() => {
-      if (activeTurn === turn) showExcerpts('모델의 응답이 지연되어 관련 원문을 표시했습니다.');
-    }, 180000);
-  }
-  onStatus('LLM을 준비하고 있습니다…');
+$('#invite-form').addEventListener('submit', async event => {
+  event.preventDefault();
+  if (busy || !api) return;
+  const code = $('#invite').value.trim();
+  busy = true;
+  const button = $('#invite-form button');
+  button.disabled = true;
   try {
-    const answer = await generateReply({
-      name: profile.name, question: turn.question, sources: turn.sources,
-      previousQuestion: turn.previousQuestion, signal: turn.controller.signal, onStatus,
-    });
-    if (activeTurn !== turn) return;
-    if (answer) finishTurn(turn, answer, profile.name + ' · LLM 답변');
-    else finishTurn(turn, extractiveAnswer(turn.sources), '문서 원문', '생성된 답변의 근거를 확인하기 어려워 관련 원문을 표시했습니다.');
-  } catch {
-    if (activeTurn !== turn) return;
-    modelEnabled = false;
-    finishTurn(turn, extractiveAnswer(turn.sources), '문서 원문', '이 기기에서 모델을 불러오거나 실행할 수 없어 관련 원문을 표시했습니다.');
-  }
-}
+    await call('/verify', code, {});
+    credential = code;
+    $('#invite').value = '';
+    $('#invite-form').hidden = true;
+    $('#chat-welcome').hidden = false;
+    $('#feedback').textContent = '';
+  } catch (e) { $('#feedback').textContent = e.message; }
+  finally { busy = false; button.disabled = false; lock(!credential); }
+  if (credential) questionInput.focus();
+});
 
-function sendQuestion(question) {
+async function sendQuestion(question) {
   const query = question.trim();
-  if (activeTurn || !retrieve || !query || query.length > 500) return;
-  const turn = {
-    question: query, sources: retrieve(query, history).slice(0, 3),
-    previousQuestion: previousTopic(query, history), controller: new AbortController(), running: false,
-  };
-  activeTurn = turn;
+  if (!credential || busy || !query || query.length > 500) return;
+  busy = true;
+  lock(true);
   $('#chat-welcome').hidden = true;
-  addMessage('user', query);
-  questionInput.value = '';
-  questionInput.style.height = '';
-  questionInput.disabled = true;
-  $('#send').disabled = true;
-  if (!turn.sources.length) {
-    finishTurn(turn, extractiveAnswer([]), '문서 검색');
-    return;
-  }
-  $('#model-actions').hidden = false;
-  $('#start-model').hidden = false;
-  if (modelEnabled) {
-    void startGeneration();
-  } else {
-    $('#feedback').textContent = 'LLM을 시작하면 모델을 이 기기에 저장합니다(최초 약 398 MB). 저장된 모델은 다시 사용합니다.';
-    $('#start-model').focus({preventScroll: true});
-  }
+  addMessage('user',query);
+  $('#feedback').textContent = '이력서를 참고해 답변을 작성하고 있습니다…';
+  try {
+    const data = await call('/chat',credential,{question:query,conversation,requestId:crypto.randomUUID()});
+    addMessage('assistant',data.answer,data.sources.filter(s=>knowledge.chunks.some(c=>c.id===s.id)),profile.name+' · 답변');
+    $('#feedback').textContent = '';
+    questionInput.value = '';
+  } catch (e) { $('#feedback').textContent = e.message; }
+  finally { busy = false; lock(!credential); }
+  if (credential) questionInput.focus();
 }
 
-$('#start-model').addEventListener('click', startGeneration);
-$('#show-excerpts').addEventListener('click', () => showExcerpts());
 $('#chat-form').addEventListener('submit', event => { event.preventDefault(); sendQuestion(questionInput.value); });
 questionInput.addEventListener('keydown', event => {
   if (event.key === 'Enter' && !event.shiftKey && !event.isComposing && event.keyCode !== 229) {
@@ -160,22 +134,14 @@ questionInput.addEventListener('keydown', event => {
 });
 questionInput.addEventListener('input', () => { questionInput.style.height = 'auto'; questionInput.style.height = Math.min(questionInput.scrollHeight, 120) + 'px'; });
 $('#reset-chat').addEventListener('click', () => {
-  if (activeTurn) {
-    clearTimeout(activeTurn.timer);
-    activeTurn.controller.abort();
-    modelEnabled = false;
-  }
-  activeTurn = null;
-  $('#model-actions').hidden = true;
-  questionInput.disabled = !retrieve;
-  $('#send').disabled = !retrieve;
-  history = [];
+  if (busy || !credential) return;
+  conversation = crypto.randomUUID();
   messages.replaceChildren();
   $('#chat-welcome').hidden = false;
   $('#feedback').textContent = '';
   questionInput.value = '';
   questionInput.style.height = '';
-  if (retrieve) questionInput.focus({preventScroll: true});
+  if (credential) questionInput.focus({preventScroll: true});
 });
 document.querySelectorAll('[data-open-docs]').forEach(button => button.addEventListener('click', () => showDocs()));
 $('#close-documents').addEventListener('click', () => dialog.close());
@@ -220,21 +186,22 @@ function renderProfile() {
     link.href = href; link.rel = 'noopener noreferrer'; link.target = '_blank'; $('#social-links').append(link);
   }
   $('#mode-label').textContent = '문서 기반 LLM';
-  $('#mode-note').textContent = '질문과 답변은 이 기기에서 처리합니다.';
+  $('#mode-note').textContent = '초대코드별로 질문과 답변이 기록됩니다.';
   $('#source-count').textContent = `공개 자료 ${knowledge.documents.length}개`;
   $('#updated-at').textContent = `자료 업데이트 ${new Intl.DateTimeFormat('ko-KR', {timeZone:'Asia/Seoul',dateStyle:'medium'}).format(new Date(knowledge.updatedAt))}`;
 }
 
 try {
-  [profile, knowledge] = await Promise.all(['profile', 'knowledge'].map(async filename => {
+  [profile, knowledge, {api}] = await Promise.all(['profile', 'knowledge','config'].map(async filename => {
     const response = await fetch(new URL(`./data/${filename}.json`, import.meta.url), {cache:'no-cache'});
     if (!response.ok) throw new Error('자료 요청 실패');
     return response.json();
   }));
-  retrieve = makeRetriever(knowledge, profile.name, [profile.fullName, ...(profile.aliases || [])]);
   renderProfile();
-  questionInput.disabled = false;
-  $('#send').disabled = false;
+  lock(true);
+  $('#invite-form button').disabled = !api;
+  if (!api) $('#feedback').textContent = '운영자가 서버 API 연결을 준비하고 있습니다.';
+
 } catch {
   $('#mode-label').textContent = '자료를 불러오지 못했어요';
   $('#summary').textContent = '프로필을 불러오지 못했습니다. 잠시 후 새로고침해 주세요.';
