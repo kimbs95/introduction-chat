@@ -30,11 +30,12 @@ jobs:
       - uses: actions/setup-node@v6
         with:
           node-version: '22'
-      - run: npm ci --ignore-scripts --no-audit --no-fund
       - run: python -m pip install -r requirements.txt
       - name: Test document extraction
         run: python -m unittest discover -s tests -p 'test_*.py' -v
       - name: Build public data and website
+        env:
+          CHAT_API_URL: ${{ vars.CHAT_API_URL }}
         run: python scripts/build.py
       - name: Test document search
         run: npm test
