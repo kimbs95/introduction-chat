@@ -8,3 +8,7 @@ dist/
 .openai/
 *.log
 .DS_Store
+
+server/wrangler.json
+server/.dev.vars*
+.wrangler/
