@@ -9,9 +9,5 @@
   },
   "engines": {
     "node": ">=22"
-  },
-  "dependencies": {
-    "@wllama/wllama": "3.13.0",
-    "@wllama/wllama-compat": "3.13.0"
   }
 }

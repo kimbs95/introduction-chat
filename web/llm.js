@@ -1,8 +1,3 @@
-const MODEL_URL = 'https://huggingface.co/bartowski/Qwen2.5-0.5B-Instruct-GGUF/resolve/'
-  + '41ba88dbac95fed2528c92514c131d73eb5a174b/Qwen2.5-0.5B-Instruct-Q4_K_M.gguf';
-const MODEL_BYTES = 397808192;
-let loadedEngine = null;
-
 function boundedText(value, maxBytes) {
   const text = value.replace(/<\|[^|>\n]{0,64}\|>/g, ' ').trim();
   const bytes = new TextEncoder().encode(text);
@@ -51,47 +46,3 @@ export function checkedAnswer(choice, name, sources, question = '') {
   return text;
 }
 
-function asset(path) {
-  return new URL('./vendor/wllama/' + path, import.meta.url).href;
-}
-
-export async function generateReply({name, question, sources, previousQuestion, signal, onStatus}) {
-  const messages = evidenceMessages(name, question, sources, previousQuestion);
-  signal.throwIfAborted();
-  const {Wllama} = await import('./vendor/wllama/runtime.js');
-  signal.throwIfAborted();
-  const engine = loadedEngine || new Wllama({default: asset('wllama.wasm')}, {suppressNativeLog: true});
-  function discard() {
-    if (loadedEngine === engine) loadedEngine = null;
-    return engine.exit();
-  }
-  const cancel = () => { void discard().catch(() => {}); };
-  signal.addEventListener('abort', cancel, {once: true});
-  try {
-    if (engine !== loadedEngine) {
-      engine.setCompat({worker: asset('compat/wllama.js'), wasm: asset('compat/wllama.wasm')});
-      onStatus('저장된 모델을 확인하고 있습니다…');
-      await engine.loadModelFromUrl(MODEL_URL, {
-        n_ctx: 4096, n_threads: 1, n_gpu_layers: 0, n_batch: 128, n_ubatch: 128,
-        warmup: false, signal,
-        progressCallback({loaded}) {
-          const percent = Math.min(100, Math.floor(100 * loaded / MODEL_BYTES));
-          onStatus(percent < 100 ? '모델 다운로드 중 · ' + percent + '%' : '받은 모델을 여는 중입니다…');
-        },
-      });
-      signal.throwIfAborted();
-      loadedEngine = engine;
-    }
-    onStatus('공개 이력서를 읽고 한국어로 답변을 작성하는 중입니다…');
-    const response = await engine.createChatCompletion({
-      messages, temperature: 0, max_tokens: 160, seed: 42, abortSignal: signal,
-    });
-    signal.throwIfAborted();
-    return checkedAnswer(response.choices?.[0], name, sources, question);
-  } catch (error) {
-    await discard().catch(() => {});
-    throw error;
-  } finally {
-    signal.removeEventListener('abort', cancel);
-  }
-}
