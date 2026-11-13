@@ -1,0 +1,7 @@
+{
+  "name": "introduction-chat-api",
+  "main": "worker.js",
+  "compatibility_date": "2025-06-01",
+  "workers_dev": true,
+  "d1_databases": [{"binding":"DB","database_name":"introduction-chat","database_id":"REPLACE_WITH_D1_DATABASE_ID"}]
+}
